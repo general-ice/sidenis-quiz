@@ -9,21 +9,42 @@ class VirtualDOM {
     }
 
     update(node, vNode) {
-        this.__updateElement(node,vNode)
+        this.__updateElement(node,vNode, node.parentNode)
     }
 
-    __updateElement(node, vNode) {
-        const nodeChild = Array.from(node.children);
-        if (this.__isEqualElement(node, vNode) && nodeChild.length) {
+    __updateElement(node, vNode, cParentNode) {
+        debugger
+        if (this.__isEqualElement(node, vNode)) {
             const vNodeChild = vNode.children;
-            vNodeChild.forEach((vNode, i) => {
-                this.__updateElement(nodeChild[i], vNode)
-            }, []);
+            const nodeChild = Array.from(node.children);
+            const maxChildLenght = Math.max(nodeChild.length, vNodeChild.length);
+            for(let i = 0; i < maxChildLenght; i++) {
+                this.__updateElement(nodeChild[i], vNodeChild[i], node)
+            }
         } else {
-            const necessaryEl = this.__createElement(vNode);
-            node.parentNode.append(necessaryEl);
+            // Mismatch case
+            this.__resolveConflict(node, vNode, cParentNode);
+        }
+    }
+
+    __resolveConflict(node, vNode, parentNode) {
+        // Case 1
+        if (node && vNode) {
+            return this.__replaceNode(node, this.__createElement(vNode));
+        }
+        // Case 2
+        if (!node && vNode) {
+            parentNode.appendChild(this.__createElement(vNode))
+        }
+        // Case 3
+        if (node && !vNode) {
             node.remove();
         }
+
+    }
+
+    __replaceNode(oldNode, newNode) {
+        oldNode.parentNode.replaceChild(oldNode, newNode);
     }
 
     __combineChildren(children) {
@@ -36,6 +57,14 @@ class VirtualDOM {
     }
 
     __isEqualElement(node, vNode) {
+        const typeNode = typeof node;
+        const typeVNode = typeof vNode;
+        if (typeNode !== typeVNode) {
+            return false;
+        }
+        if (typeNode === 'string') {
+            return this.__isEqualName(node, vNode)
+        }
         if (this.__isEqualName(node.tagName, vNode.tagName)) {
             return this.__isEqualAttr(Object.assign({}, node.attributes), vNode.attributes);
         }
@@ -44,22 +73,23 @@ class VirtualDOM {
     }
 
     __isEqualAttr(attrMap1, attrMap2) {
-        if (!(!!attrMap1 && !!attrMap2)) {
+        const exactAttr = Object.keys(attrMap1).length ? attrMap1 : null;
+        if (!exactAttr && !attrMap2) {
             return true;
         }
 
-        if (!(!!attrMap1 || !!attrMap2)) {
+        if (!!exactAttr ^ !!attrMap2) {
             return false;
         }
 
-        const attrList1 = Object.keys(attrMap1);
+        const attrList1 = Object.keys(exactAttr);
         const attrList2 = Object.keys(attrMap2);
-        if (attrList1.length !== attrList2.length) {
+        if (exactAttr.length !== attrList2.length) {
             return false;
         }
 
-        return !attrList1.some(attr1 => {
-            return attrMap1[attr1] !== attrMap2[attr1];
+        return !exactAttr.some(attr1 => {
+            return exactAttr[attr1] !== attrMap2[attr1];
         });
     }
 
@@ -68,7 +98,8 @@ class VirtualDOM {
     }
 
     __createElement(node) {
-        if (node.length) {
+        console.log('__createElement');
+        if (Array.isArray(node)) {
             return document.createTextNode(node)
         } else {
             const {tagName, attributes, children} = node;
@@ -89,32 +120,21 @@ class VirtualDOM {
 
 const test = () => {
     const rootNode = document.createElement("DIV");
+    const childNode = document.createElement('SPAN');
+    const textNode = document.createTextNode('SPAN');
+    childNode.appendChild(textNode);
+    rootNode.appendChild(childNode);
+
     document.body.appendChild(rootNode);
 
     const virtualDOM = new VirtualDOM();
 
-    const rootVNode =
-        virtualDOM.create('div', null, [
-            virtualDOM.create('SPAN',
-                { style: 'color: red;' },
-                ['Span']),
-            virtualDOM.create('ul',
-                null,
-                [
-                    virtualDOM.create('li',
-                        { style: 'color: green;' },
-                        ['firstEl']),
-                    virtualDOM.create('li',
-                        { style: 'color: whitesmoke; font-size: 21px' },
-                        ['secondEl']),
-                ]),
-            virtualDOM.create('BUTTON',
-                { disabled: true },
-                ['Button'])
+    const rootVNode = virtualDOM.create('div', null, [
+        virtualDOM.create('span', null, ['Hello'])
         ]);
 
 
     virtualDOM.update(rootNode, rootVNode);
-};
+}
 
 test();
