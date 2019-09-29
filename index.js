@@ -13,28 +13,37 @@ class VirtualDOM {
     }
 
     __updateElement(node, vNode, cParentNode) {
-        debugger
         if (this.__isEqualElement(node, vNode)) {
             const vNodeChild = vNode.children;
-            const nodeChild = Array.from(node.children);
-            const maxChildLenght = Math.max(nodeChild.length, vNodeChild.length);
-            for(let i = 0; i < maxChildLenght; i++) {
-                this.__updateElement(nodeChild[i], vNodeChild[i], node)
+            const nodeChild = Array.from(node.childNodes
+
+            // If element does not exist break
+            if (!vNodeChild || !nodeChild) {
+                return false
             }
+
+            const maxChildLenght = Math.max(nodeChild.length, vNodeChild.length);
+            let i = 0;
+            do {
+                this.__updateElement(nodeChild[i], vNodeChild[i], node)
+                i ++;
+            } while (i < maxChildLenght)
         } else {
             // Mismatch case
             this.__resolveConflict(node, vNode, cParentNode);
         }
     }
 
+
     __resolveConflict(node, vNode, parentNode) {
+        console.log('__resolveConflict')
         // Case 1
         if (node && vNode) {
             return this.__replaceNode(node, this.__createElement(vNode));
         }
         // Case 2
         if (!node && vNode) {
-            parentNode.appendChild(this.__createElement(vNode))
+            return parentNode.appendChild(this.__createElement(vNode))
         }
         // Case 3
         if (node && !vNode) {
@@ -44,7 +53,7 @@ class VirtualDOM {
     }
 
     __replaceNode(oldNode, newNode) {
-        oldNode.parentNode.replaceChild(oldNode, newNode);
+        oldNode.parentNode.replaceChild(newNode, oldNode);
     }
 
     __combineChildren(children) {
@@ -57,17 +66,20 @@ class VirtualDOM {
     }
 
     __isEqualElement(node, vNode) {
-        const typeNode = typeof node;
-        const typeVNode = typeof vNode;
-        if (typeNode !== typeVNode) {
+        if (!!node ^ !!vNode) {
             return false;
         }
-        if (typeNode === 'string') {
-            return this.__isEqualName(node, vNode)
+
+
+        if (node.nodeType === Node.TEXT_NODE) {
+            return this.__isEqualName(node.textContent, vNode, true)
         }
-        if (this.__isEqualName(node.tagName, vNode.tagName)) {
-            return this.__isEqualAttr(Object.assign({}, node.attributes), vNode.attributes);
+        if (node.nodeType === Node.ELEMENT_NODE) {
+            if (this.__isEqualName(node.tagName, vNode.tagName)) {
+                return this.__isEqualAttr(Object.assign({}, node.attributes), vNode.attributes);
+            }
         }
+        
 
         return false;
     }
@@ -93,13 +105,15 @@ class VirtualDOM {
         });
     }
 
-    __isEqualName(s1, s2) {
+    __isEqualName(s1, s2, isRegistryFeel = false) {
+        if (isRegistryFeel) 
+            return s1 === s2;
+
         return s1.toLowerCase() === s2.toLowerCase();
     }
 
     __createElement(node) {
-        console.log('__createElement');
-        if (Array.isArray(node)) {
+        if (typeof node === 'string') {
             return document.createTextNode(node)
         } else {
             const {tagName, attributes, children} = node;
@@ -122,16 +136,18 @@ const test = () => {
     const rootNode = document.createElement("DIV");
     const childNode = document.createElement('SPAN');
     const textNode = document.createTextNode('SPAN');
+    const textNode2 = document.createTextNode('SPAN2');
+    const textNode3 = document.createTextNode('SPAN3');
     childNode.appendChild(textNode);
+    childNode.appendChild(textNode2);
+    childNode.appendChild(textNode3);
     rootNode.appendChild(childNode);
 
     document.body.appendChild(rootNode);
 
     const virtualDOM = new VirtualDOM();
 
-    const rootVNode = virtualDOM.create('div', null, [
-        virtualDOM.create('span', null, ['Hello'])
-        ]);
+    const rootVNode = virtualDOM.create('span', null, ['Single']);
 
 
     virtualDOM.update(rootNode, rootVNode);
